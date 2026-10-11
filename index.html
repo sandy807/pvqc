@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PVQC 護理英文基礎級練習系統</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome 圖示庫 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            tealMedical: {
+              50: '#f0fdfa',
+              100: '#ccfbf1',
+              500: '#14b8a6',
+              600: '#0d9488',
+              700: '#0f766e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    .perspective-1000 {
+      perspective: 1000px;
+    }
+    .transform-style-preserve-3d {
+      transform-style: preserve-3d;
+    }
+    .backface-hidden {
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+    .rotate-y-180 {
+      transform: rotateY(180deg);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased selection:bg-teal-500 selection:text-white">
+
+  <!-- 頂部導航列 -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-teal-400 flex items-center justify-center text-white shadow-md shadow-teal-500/20">
+          <i class="fa-solid fa-user-nurse text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold text-slate-800 leading-tight">PVQC 護理英文基礎級</h1>
+          <p class="text-[11px] sm:text-xs text-slate-500">專三護理考照單字衝刺系統</p>
+        </div>
+      </div>
+
+      <!-- 右側按鈕群組 -->
+      <div class="flex items-center space-x-1.5 sm:space-x-2">
+        <!-- 錯題模式按鈕 -->
+        <button id="btnMistakeMode" onclick="toggleMistakeMode()" class="px-2.5 sm:px-3 py-1.5 rounded-lg border border-rose-200 text-rose-700 bg-rose-50/70 hover:bg-rose-100 text-xs sm:text-sm font-medium transition flex items-center gap-1.5" title="切換錯題重練模式">
+          <i class="fa-solid fa-bookmark text-rose-500"></i>
+          <span>錯題 (<span id="mistakeCount">0</span>)</span>
+        </button>
+
+        <!-- 查看所有錯題清單按鈕 -->
+        <button id="btnViewMistakes" onclick="openMistakeListModal()" class="hidden px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs transition" title="檢視錯題清單">
+          <i class="fa-solid fa-list-ul"></i>
+        </button>
+
+        <!-- 清空所有錯題 -->
+        <button id="btnClearMistakes" onclick="clearAllMistakes()" class="hidden px-2 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-rose-600 hover:bg-rose-50 text-xs transition" title="清空錯題紀錄">
+          <i class="fa-solid fa-trash-can"></i>
+        </button>
+
+        <!-- GAS 設定選單 (備用) -->
+        <button id="btnOpenApiModal" onclick="openApiModal()" class="px-2.5 py-1.5 rounded-lg border border-teal-200 text-teal-700 bg-teal-50/60 hover:bg-teal-100 text-xs font-medium transition flex items-center gap-1" title="GAS 串接設定">
+          <i class="fa-solid fa-cloud-arrow-down text-teal-600"></i>
+          <span class="hidden md:inline">設定</span>
+        </button>
+
+        <!-- 雲端連線狀態徽章 -->
+        <span id="dataBadge" class="text-[11px] font-medium bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span id="dataBadgeText">連線中...</span>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主容器 -->
+  <main class="max-w-5xl mx-auto px-4 py-5 flex-1 w-full flex flex-col gap-5">
+
+    <!-- 錯題專屬重練橫幅提示 (僅在錯題模式開啟時顯示) -->
+    <div id="mistakeBanner" class="hidden bg-gradient-to-r from-rose-500 to-rose-600 text-white px-4 py-3 rounded-2xl shadow-sm flex items-center justify-between text-xs sm:text-sm">
+      <div class="flex items-center gap-2 font-medium">
+        <i class="fa-solid fa-circle-exclamation text-rose-100 text-base"></i>
+        <span>目前為「錯題攻堅模式」：答對的單字將會自動移出錯題本！</span>
+      </div>
+      <button onclick="toggleMistakeMode()" class="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-white font-semibold transition text-xs">
+        返回全部單字
+      </button>
+    </div>
+
+    <!-- 模式選擇與分類篩選器 -->
+    <section class="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+      <!-- 模式選籤 -->
+      <div class="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto text-xs sm:text-sm font-medium text-slate-600">
+        <button id="tabFlashcard" onclick="switchMode('flashcard')" class="flex-1 sm:flex-initial px-3.5 py-2 rounded-lg bg-white text-teal-700 shadow-sm font-semibold transition flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-clone"></i> 閃卡背誦
+        </button>
+        <button id="tabQuiz" onclick="switchMode('quiz')" class="flex-1 sm:flex-initial px-3.5 py-2 rounded-lg hover:text-teal-600 transition flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-list-check"></i> 看英選中
+        </button>
+        <button id="tabSpelling" onclick="switchMode('spelling')" class="flex-1 sm:flex-initial px-3.5 py-2 rounded-lg hover:text-teal-600 transition flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-keyboard"></i> 拼字挑戰
+        </button>
+      </div>
+
+      <!-- 主題分類下拉選單 -->
+      <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+        <label for="categoryFilter" class="text-xs sm:text-sm text-slate-500 whitespace-nowrap font-medium">主題分類：</label>
+        <select id="categoryFilter" onchange="filterCategory()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs sm:text-sm rounded-lg focus:ring-teal-500 focus:border-teal-500 px-3 py-2 outline-none font-medium">
+          <option value="ALL">全部範圍 (All)</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- 模式 1：閃卡練習視圖 -->
+    <section id="flashcardView" class="flex-1 flex flex-col items-center justify-center">
+      <div class="w-full max-w-md perspective-1000 my-3">
+        <!-- 3D 翻轉卡片主體 -->
+        <div id="cardInner" onclick="toggleCardFlip()" class="cursor-pointer relative w-full h-80 rounded-3xl shadow-lg hover:shadow-xl transition-transform duration-500 transform-style-preserve-3d border border-teal-100 bg-white">
+          
+          <!-- 卡片正面 (英文) -->
+          <div class="absolute inset-0 w-full h-full bg-gradient-to-b from-white to-teal-50/30 rounded-3xl p-7 flex flex-col justify-between items-center backface-hidden text-center">
+            <div class="w-full flex items-center justify-between">
+              <span id="fcCategory" class="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-teal-600 bg-teal-50 px-3 py-1 rounded-full border border-teal-100">
+                Category
+              </span>
+              <div class="flex items-center gap-2">
+                <button id="fcBookmarkBtn" onclick="event.stopPropagation(); toggleCurrentFlashcardBookmark();" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-500 flex items-center justify-center transition shadow-sm" title="收錄至錯題本">
+                  <i id="fcBookmarkIcon" class="fa-regular fa-bookmark text-sm"></i>
+                </button>
+                <button onclick="event.stopPropagation(); playCurrentPronunciation();" class="w-9 h-9 rounded-full bg-teal-100 hover:bg-teal-200 text-teal-700 flex items-center justify-center transition shadow-sm" title="朗讀發音">
+                  <i class="fa-solid fa-volume-high text-sm"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="my-auto">
+              <h2 id="fcEnglish" class="text-3xl sm:text-4xl font-extrabold text-slate-800 tracking-tight mb-2">Word</h2>
+              <p class="text-xs text-slate-400 font-medium">點擊卡片翻轉查看中文釋義</p>
+            </div>
+
+            <div class="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+              <i class="fa-solid fa-arrow-rotate-right text-teal-500"></i> 點擊任意處翻面
+            </div>
+          </div>
+
+          <!-- 卡片背面 (中文) -->
+          <div class="absolute inset-0 w-full h-full bg-gradient-to-b from-teal-600 to-teal-700 text-white rounded-3xl p-7 flex flex-col justify-between items-center rotate-y-180 backface-hidden text-center shadow-inner">
+            <div class="w-full flex items-center justify-between">
+              <span class="text-xs font-medium text-teal-100 bg-teal-800/40 px-3 py-1 rounded-full">
+                中文解答
+              </span>
+              <button onclick="event.stopPropagation(); playCurrentPronunciation();" class="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition" title="朗讀發音">
+                <i class="fa-solid fa-volume-high text-sm"></i>
+              </button>
+            </div>
+
+            <div class="my-auto">
+              <h3 id="fcChinese" class="text-3xl sm:text-4xl font-black tracking-wide mb-2">中文</h3>
+              <p id="fcBackEnglish" class="text-base text-teal-100 font-medium">English Word</p>
+            </div>
+
+            <div class="text-xs text-teal-200 font-medium">
+              再次點擊翻回英文正面
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 閃卡底部控制列 -->
+      <div class="flex items-center justify-center gap-4 w-full max-w-md mt-2">
+        <button onclick="prevWord()" class="flex-1 py-3 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold shadow-sm transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-arrow-left text-sm"></i> 上一個
+        </button>
+        <span id="fcProgress" class="text-sm font-semibold text-slate-500 px-2 min-w-[70px] text-center">1 / 30</span>
+        <button onclick="nextWord()" class="flex-1 py-3 px-4 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold shadow-md shadow-teal-600/20 transition flex items-center justify-center gap-2">
+          下一個 <i class="fa-solid fa-arrow-right text-sm"></i>
+        </button>
+      </div>
+    </section>
+
+    <!-- 模式 2：看英選中 (選擇題) -->
+    <section id="quizView" class="hidden flex-1 flex flex-col items-center justify-center">
+      <div class="w-full max-w-lg bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm flex flex-col gap-5">
+        
+        <!-- 題幹區 -->
+        <div class="flex flex-col items-center text-center gap-2 border-b border-slate-100 pb-4">
+          <span id="quizCategory" class="text-xs font-semibold text-teal-600 bg-teal-50 px-3 py-1 rounded-full">Category</span>
+          <div class="flex items-center gap-3 mt-1">
+            <h2 id="quizEnglish" class="text-3xl font-extrabold text-slate-800">Word</h2>
+            <button onclick="playQuizPronunciation()" class="text-teal-600 hover:text-teal-700 w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center transition" title="朗讀發音">
+              <i class="fa-solid fa-volume-high text-sm"></i>
+            </button>
+          </div>
+          <p class="text-xs text-slate-400">請選出正確的中文意思：</p>
+        </div>
+
+        <!-- 四選一選項區 -->
+        <div id="quizOptions" class="grid grid-cols-1 gap-2.5">
+          <!-- 選項由 JS 動態生成 -->
+        </div>
+
+        <!-- 答題反饋與下一步 -->
+        <div id="quizFeedbackBox" class="hidden p-3.5 rounded-xl flex items-center justify-between">
+          <span id="quizFeedbackText" class="font-bold text-sm"></span>
+          <button onclick="loadNextQuiz()" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs sm:text-sm font-semibold rounded-lg shadow transition">
+            下一題 <i class="fa-solid fa-chevron-right ml-1"></i>
+          </button>
+        </div>
+
+        <!-- 成績統計指標 -->
+        <div class="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-100 font-medium">
+          <span>累積答題：<strong id="quizTotalCount" class="text-slate-700">0</strong></span>
+          <span>正確率：<strong id="quizAccuracy" class="text-teal-600 font-bold">100%</strong></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 模式 3：拼字練習 (看中文拼英文) -->
+    <section id="spellingView" class="hidden flex-1 flex flex-col items-center justify-center">
+      <div class="w-full max-w-lg bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm flex flex-col gap-5">
+        
+        <div class="text-center flex flex-col items-center gap-2 border-b border-slate-100 pb-4">
+          <span id="spellCategory" class="text-xs font-semibold text-teal-600 bg-teal-50 px-3 py-1 rounded-full">Category</span>
+          <h2 id="spellChinese" class="text-3xl font-extrabold text-slate-800 mt-1">中文</h2>
+          <div class="flex items-center gap-2 mt-1">
+            <button onclick="playSpellingPronunciation()" class="px-3 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-full text-xs font-medium flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-volume-high"></i> 聽音練習
+            </button>
+            <button onclick="showSpellHint()" class="px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-full text-xs font-medium flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-lightbulb"></i> 字首提示
+            </button>
+          </div>
+          <p id="spellHintText" class="text-xs text-amber-600 font-medium hidden mt-1"></p>
+        </div>
+
+        <!-- 輸入拼字欄位 -->
+        <form onsubmit="handleSpellSubmit(event)" class="flex flex-col gap-3.5">
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1.5">請輸入完整英文單字 (不分大小寫)：</label>
+            <input type="text" id="spellInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="w-full px-4 py-3 text-lg font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:bg-white outline-none tracking-wider text-center transition" placeholder="Type here...">
+          </div>
+          <button type="submit" class="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-md shadow-teal-600/20 transition">
+            檢查答案
+          </button>
+        </form>
+
+        <!-- 答題反饋 -->
+        <div id="spellFeedbackBox" class="hidden p-3.5 rounded-xl flex items-center justify-between">
+          <div id="spellFeedbackText" class="font-bold text-sm"></div>
+          <button onclick="loadNextSpelling()" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs sm:text-sm font-semibold rounded-lg shadow transition">
+            下一題 <i class="fa-solid fa-chevron-right ml-1"></i>
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 錯題清單檢視視窗 (Modal) -->
+  <div id="mistakeListModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-100 flex flex-col max-h-[85vh]">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+        <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+          <i class="fa-solid fa-bookmark text-rose-500"></i> 我的錯題清單
+        </h3>
+        <button onclick="closeMistakeListModal()" class="text-slate-400 hover:text-slate-600 text-lg w-8 h-8 rounded-lg flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div id="mistakeListContent" class="overflow-y-auto flex-1 divide-y divide-slate-100 text-sm">
+        <!-- 錯題項目由 JS 動態生成 -->
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+        <span>共有 <strong id="modalMistakeCount" class="text-rose-600 font-bold">0</strong> 個錯題</span>
+        <button onclick="closeMistakeListModal()" class="px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition">
+          關閉
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAS API 串接設定彈出視窗 (Modal) -->
+  <div id="apiModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 flex flex-col gap-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
+            <i class="fa-solid fa-link text-base"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-800 text-base">Google 試算表題庫連線設定</h3>
+            <p class="text-xs text-slate-400">系統已預載你的 GAS 網址</p>
+          </div>
+        </div>
+        <button onclick="closeApiModal()" class="text-slate-400 hover:text-slate-600 text-lg w-8 h-8 rounded-lg flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="flex flex-col gap-2.5">
+        <label for="gasUrlInput" class="text-xs font-semibold text-slate-600">Web App 部署 URL：</label>
+        <textarea id="gasUrlInput" rows="3" class="w-full text-xs sm:text-sm p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none font-mono text-slate-700 bg-slate-50"></textarea>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+        <button onclick="resetDefaultWords()" class="px-3.5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs sm:text-sm font-semibold transition">
+          還原預設 30 字
+        </button>
+        <button onclick="saveAndFetchApi()" class="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs sm:text-sm font-semibold shadow-md shadow-teal-600/20 transition flex items-center gap-1.5">
+          <span id="fetchLoadingSpinner" class="hidden"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+          更新並重新同步
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 自訂動態吐司通知 (取代 alert) -->
+  <div id="toastNotification" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+    <div id="toastContent" class="bg-slate-800 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-xl flex items-center gap-2.5">
+      <span id="toastIcon"></span>
+      <span id="toastMessage">訊息通知</span>
+    </div>
+  </div>
+
+  <script>
+    // 預設核心 30 個護理字彙
+    const DEFAULT_WORDS = [
+      { Category: "Anatomy & Physiology", English: "Heart", Chinese: "心臟" },
+      { Category: "Anatomy & Physiology", English: "Lung", Chinese: "肺" },
+      { Category: "Anatomy & Physiology", English: "Kidney", Chinese: "腎臟" },
+      { Category: "Anatomy & Physiology", English: "Vein", Chinese: "靜脈" },
+      { Category: "Anatomy & Physiology", English: "Artery", Chinese: "動脈" },
+      { Category: "Anatomy & Physiology", English: "Abdomen", Chinese: "腹部" },
+      { Category: "Anatomy & Physiology", English: "Brain", Chinese: "大腦" },
+      { Category: "Anatomy & Physiology", English: "Liver", Chinese: "肝臟" },
+      { Category: "Anatomy & Physiology", English: "Stomach", Chinese: "胃" },
+      { Category: "Anatomy & Physiology", English: "Blood", Chinese: "血液" },
+      { Category: "Diseases & Symptoms", English: "Fever", Chinese: "發燒" },
+      { Category: "Diseases & Symptoms", English: "Pain", Chinese: "疼痛" },
+      { Category: "Diseases & Symptoms", English: "Infection", Chinese: "感染" },
+      { Category: "Diseases & Symptoms", English: "Edema", Chinese: "水腫" },
+      { Category: "Diseases & Symptoms", English: "Nausea", Chinese: "噁心" },
+      { Category: "Diseases & Symptoms", English: "Diabetes", Chinese: "糖尿病" },
+      { Category: "Diseases & Symptoms", English: "Hypertension", Chinese: "高血壓" },
+      { Category: "Diseases & Symptoms", English: "Asthma", Chinese: "氣喘" },
+      { Category: "Diseases & Symptoms", English: "Constipation", Chinese: "便秘" },
+      { Category: "Diseases & Symptoms", English: "Diarrhea", Chinese: "腹瀉" },
+      { Category: "Nursing Interventions & Equipment", English: "Thermometer", Chinese: "體溫計" },
+      { Category: "Nursing Interventions & Equipment", English: "Syringe", Chinese: "針筒" },
+      { Category: "Nursing Interventions & Equipment", English: "Bandage", Chinese: "繃帶" },
+      { Category: "Nursing Interventions & Equipment", English: "Vital Signs", Chinese: "生命徵象" },
+      { Category: "Nursing Interventions & Equipment", English: "Medication", Chinese: "藥物" },
+      { Category: "Nursing Interventions & Equipment", English: "Stethoscope", Chinese: "聽診器" },
+      { Category: "Nursing Interventions & Equipment", English: "Wheelchair", Chinese: "輪椅" },
+      { Category: "Nursing Interventions & Equipment", English: "IV", Chinese: "靜脈注射" },
+      { Category: "Nursing Interventions & Equipment", English: "Catheter", Chinese: "導尿管" },
+      { Category: "Nursing Interventions & Equipment", English: "Gauze", Chinese: "紗布" }
+    ];
+
+    // 預設你的 Google Apps Script Web App URL
+    const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbwxZPkeBUs0xeMzJHUmA1BzUYH1Y42IhzE4VqPC8nmF-Ny0z_csx3lsFiwX6JP-ntR3/exec";
+
+    // 狀態變數
+    let wordsData = [...DEFAULT_WORDS];
+    let filteredWords = [...DEFAULT_WORDS];
+    let currentMode = 'flashcard';
+    let currentIndex = 0;
+    let isFlipped = false;
+
+    // 錯題本狀態 (永久儲存於 localStorage)
+    let mistakeList = [];
+    let isMistakeMode = false;
+
+    // 測驗統計
+    let quizStats = { total: 0, correct: 0 };
+    let currentQuizWord = null;
+    let currentSpellWord = null;
+
+    // Web Speech API 真人英文語音朗讀
+    function playPronunciation(wordText) {
+      if (!wordText) return;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(wordText);
+        utterance.lang = 'en-US';
+        utterance.rate = 0.85; // 略慢發音以利練習
+        window.speechSynthesis.speak(utterance);
+      } else {
+        showToast('此瀏覽器不支援語音朗讀', 'warning');
+      }
+    }
+
+    function playCurrentPronunciation() {
+      if (filteredWords.length > 0 && filteredWords[currentIndex]) {
+        playPronunciation(filteredWords[currentIndex].English);
+      }
+    }
+
+    function playQuizPronunciation() {
+      if (currentQuizWord && currentQuizWord.English) {
+        playPronunciation(currentQuizWord.English);
+      }
+    }
+
+    function playSpellingPronunciation() {
+      if (currentSpellWord && currentSpellWord.English) {
+        playPronunciation(currentSpellWord.English);
+      }
+    }
+
+    // 讀取永久儲存的錯題
+    function loadSavedMistakes() {
+      try {
+        const stored = localStorage.getItem('pvqc_mistakes_persistent');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            mistakeList = parsed;
+          }
+        }
+      } catch (e) {
+        mistakeList = [];
+      }
+      updateMistakeCountUI();
+    }
+
+    // 儲存錯題到 localStorage
+    function saveMistakes() {
+      try {
+        localStorage.setItem('pvqc_mistakes_persistent', JSON.stringify(mistakeList));
+      } catch (e) {}
+      updateMistakeCountUI();
+    }
+
+    function isWordInMistakes(word) {
+      if (!word || !word.English) return false;
+      return mistakeList.some(item => item.English.toLowerCase() === word.English.toLowerCase());
+    }
+
+    function addMistake(word) {
+      if (!word || !word.English) return;
+      if (!isWordInMistakes(word)) {
+        mistakeList.push({ ...word });
+        saveMistakes();
+      }
+    }
+
+    function removeMistake(word) {
+      if (!word || !word.English) return;
+      mistakeList = mistakeList.filter(item => item.English.toLowerCase() !== word.English.toLowerCase());
+      saveMistakes();
+
+      if (isMistakeMode && mistakeList.length === 0) {
+        showToast('太棒了！所有錯題都已攻克完畢 🎉', 'success');
+        toggleMistakeMode();
+      }
+    }
+
+    function clearAllMistakes() {
+      if (mistakeList.length === 0) {
+        showToast('目前錯題本是空的！', 'info');
+        return;
+      }
+      mistakeList = [];
+      saveMistakes();
+      if (isMistakeMode) toggleMistakeMode();
+      showToast('已清空所有錯題紀錄！', 'success');
+    }
+
+    function updateMistakeCountUI() {
+      const badge = document.getElementById('mistakeCount');
+      if (badge) badge.innerText = mistakeList.length;
+
+      const clearBtn = document.getElementById('btnClearMistakes');
+      const viewBtn = document.getElementById('btnViewMistakes');
+      if (mistakeList.length > 0) {
+        if (clearBtn) clearBtn.classList.remove('hidden');
+        if (viewBtn) viewBtn.classList.remove('hidden');
+      } else {
+        if (clearBtn) clearBtn.classList.add('hidden');
+        if (viewBtn) viewBtn.classList.add('hidden');
+      }
+    }
+
+    // 網頁載入時啟動
+    window.addEventListener('DOMContentLoaded', () => {
+      let savedUrl = DEFAULT_GAS_URL;
+      try {
+        savedUrl = localStorage.getItem('pvqc_gas_url') || DEFAULT_GAS_URL;
+      } catch (e) {}
+
+      const gasInput = document.getElementById('gasUrlInput');
+      if (gasInput) gasInput.value = savedUrl;
+
+      // 載入先前的錯題
+      loadSavedMistakes();
+
+      // 先載入預設單字確保可用
+      refreshCategoryDropdown(DEFAULT_WORDS);
+      updateDataset(DEFAULT_WORDS, "內建 30 字");
+
+      // 背景自動同步 Google 試算表
+      fetchRemoteData(savedUrl, false).catch(() => {
+        document.getElementById('dataBadgeText').innerText = "內建題庫";
+      });
+    });
+
+    async function fetchRemoteData(url, showToastMsg = false) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('API 回應異常');
+        const data = await res.json();
+
+        if (Array.isArray(data) && data.length > 0) {
+          refreshCategoryDropdown(data);
+          updateDataset(data, `試算表 (${data.length}字)`);
+          if (showToastMsg) showToast(`成功同步 ${data.length} 個護理單字！`, 'success');
+        } else {
+          throw new Error('試算表內容為空');
+        }
+      } catch (err) {
+        if (showToastMsg) showToast('無法連線到試算表，維持內建題庫', 'warning');
+        throw err;
+      }
+    }
+
+    function updateDataset(data, badgeText) {
+      wordsData = [...data];
+      const textEl = document.getElementById('dataBadgeText');
+      if (textEl) textEl.innerText = badgeText;
+      filterCategory();
+    }
+
+    function refreshCategoryDropdown(data) {
+      const select = document.getElementById('categoryFilter');
+      if (!select) return;
+      const currentVal = select.value;
+      const categories = [...new Set(data.map(item => item.Category).filter(Boolean))];
+
+      select.innerHTML = '<option value="ALL">全部範圍 (All)</option>';
+      categories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.innerText = cat;
+        select.appendChild(opt);
+      });
+
+      if (categories.includes(currentVal)) {
+        select.value = currentVal;
+      } else {
+        select.value = 'ALL';
+      }
+    }
+
+    function switchMode(mode) {
+      currentMode = mode;
+      const views = {
+        flashcard: document.getElementById('flashcardView'),
+        quiz: document.getElementById('quizView'),
+        spelling: document.getElementById('spellingView')
+      };
+      const tabs = {
+        flashcard: document.getElementById('tabFlashcard'),
+        quiz: document.getElementById('tabQuiz'),
+        spelling: document.getElementById('tabSpelling')
+      };
+
+      Object.keys(views).forEach(key => {
+        if (key === mode) {
+          if (views[key]) views[key].classList.remove('hidden');
+          if (tabs[key]) tabs[key].className = 'flex-1 sm:flex-initial px-3.5 py-2 rounded-lg bg-white text-teal-700 shadow-sm font-semibold transition flex items-center justify-center gap-1.5';
+        } else {
+          if (views[key]) views[key].classList.add('hidden');
+          if (tabs[key]) tabs[key].className = 'flex-1 sm:flex-initial px-3.5 py-2 rounded-lg hover:text-teal-600 transition flex items-center justify-center gap-1.5';
+        }
+      });
+
+      if (mode === 'flashcard') renderFlashcard();
+      if (mode === 'quiz') loadNextQuiz();
+      if (mode === 'spelling') loadNextSpelling();
+    }
+
+    function filterCategory() {
+      if (isMistakeMode) {
+        filteredWords = [...mistakeList];
+      } else {
+        const select = document.getElementById('categoryFilter');
+        const selected = select ? select.value : 'ALL';
+        if (selected === 'ALL') {
+          filteredWords = [...wordsData];
+        } else {
+          filteredWords = wordsData.filter(item => item.Category === selected);
+        }
+      }
+
+      if (filteredWords.length === 0) {
+        if (isMistakeMode) {
+          showToast('錯題本是空的！已返回全部題庫', 'success');
+          toggleMistakeMode();
+          return;
+        } else {
+          filteredWords = [...wordsData];
+        }
+      }
+
+      currentIndex = 0;
+      if (currentMode === 'flashcard') renderFlashcard();
+      if (currentMode === 'quiz') loadNextQuiz();
+      if (currentMode === 'spelling') loadNextSpelling();
+    }
+
+    function toggleMistakeMode() {
+      if (!isMistakeMode && mistakeList.length === 0) {
+        showToast('目前沒有錯題紀錄喔！可於測驗中累積或於閃卡加入書籤', 'info');
+        return;
+      }
+
+      isMistakeMode = !isMistakeMode;
+      const banner = document.getElementById('mistakeBanner');
+      const btn = document.getElementById('btnMistakeMode');
+      const select = document.getElementById('categoryFilter');
+
+      if (isMistakeMode) {
+        banner.classList.remove('hidden');
+        btn.classList.add('bg-rose-600', 'text-white');
+        btn.classList.remove('bg-rose-50/70', 'text-rose-700');
+        if (select) {
+          select.disabled = true;
+          select.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+        showToast(`已進入錯題重練，共 ${mistakeList.length} 題`, 'info');
+      } else {
+        banner.classList.add('hidden');
+        btn.classList.remove('bg-rose-600', 'text-white');
+        btn.classList.add('bg-rose-50/70', 'text-rose-700');
+        if (select) {
+          select.disabled = false;
+          select.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+      }
+
+      filterCategory();
+    }
+
+    function renderFlashcard() {
+      if (filteredWords.length === 0) return;
+      const word = filteredWords[currentIndex];
+      if (!word) return;
+
+      document.getElementById('fcCategory').innerText = word.Category || '護理詞彙';
+      document.getElementById('fcEnglish').innerText = word.English;
+      document.getElementById('fcChinese').innerText = word.Chinese;
+      document.getElementById('fcBackEnglish').innerText = word.English;
+      document.getElementById('fcProgress').innerText = `${currentIndex + 1} / ${filteredWords.length}`;
+
+      const isBookmarked = isWordInMistakes(word);
+      const icon = document.getElementById('fcBookmarkIcon');
+      const btn = document.getElementById('fcBookmarkBtn');
+
+      if (isBookmarked) {
+        icon.className = "fa-solid fa-bookmark text-sm text-rose-500";
+        btn.className = "w-9 h-9 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center transition shadow-sm";
+      } else {
+        icon.className = "fa-regular fa-bookmark text-sm text-slate-400";
+        btn.className = "w-9 h-9 rounded-full bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-500 flex items-center justify-center transition shadow-sm";
+      }
+
+      isFlipped = false;
+      document.getElementById('cardInner').classList.remove('rotate-y-180');
+    }
+
+    function toggleCardFlip() {
+      isFlipped = !isFlipped;
+      const card = document.getElementById('cardInner');
+      if (isFlipped) card.classList.add('rotate-y-180');
+      else card.classList.remove('rotate-y-180');
+    }
+
+    function nextWord() {
+      if (filteredWords.length === 0) return;
+      currentIndex = (currentIndex + 1) % filteredWords.length;
+      renderFlashcard();
+    }
+
+    function prevWord() {
+      if (filteredWords.length === 0) return;
+      currentIndex = (currentIndex - 1 + filteredWords.length) % filteredWords.length;
+      renderFlashcard();
+    }
+
+    function toggleCurrentFlashcardBookmark() {
+      if (filteredWords.length === 0) return;
+      const cur = filteredWords[currentIndex];
+      if (!cur) return;
+
+      if (isWordInMistakes(cur)) {
+        removeMistake(cur);
+        showToast(`已從錯題本移出：${cur.English}`, 'info');
+      } else {
+        addMistake(cur);
+        showToast(`已加入錯題本：${cur.English} 📌`, 'success');
+      }
+      renderFlashcard();
+    }
+
+    function loadNextQuiz() {
+      if (filteredWords.length === 0) return;
+      document.getElementById('quizFeedbackBox').classList.add('hidden');
+
+      const randIdx = Math.floor(Math.random() * filteredWords.length);
+      currentQuizWord = filteredWords[randIdx];
+
+      document.getElementById('quizCategory').innerText = currentQuizWord.Category || '護理詞彙';
+      document.getElementById('quizEnglish').innerText = currentQuizWord.English;
+
+      // 產生選項
+      const options = [currentQuizWord.Chinese];
+      const otherWords = wordsData.filter(w => w.Chinese !== currentQuizWord.Chinese);
+      const shuffledOthers = otherWords.sort(() => Math.random() - 0.5);
+
+      for (let i = 0; i < Math.min(3, shuffledOthers.length); i++) {
+        options.push(shuffledOthers[i].Chinese);
+      }
+      options.sort(() => Math.random() - 0.5);
+
+      const container = document.getElementById('quizOptions');
+      container.innerHTML = '';
+
+      options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = "w-full text-left px-5 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-teal-50 hover:border-teal-300 font-semibold text-slate-700 transition flex items-center justify-between text-sm sm:text-base";
+        btn.innerHTML = `<span>${opt}</span><i class="fa-regular fa-circle text-slate-300"></i>`;
+        btn.onclick = () => checkQuizAnswer(btn, opt, currentQuizWord.Chinese);
+        container.appendChild(btn);
+      });
+    }
+
+    function checkQuizAnswer(btnElem, selectedAns, correctAns) {
+      const allBtns = document.getElementById('quizOptions').querySelectorAll('button');
+      allBtns.forEach(b => b.disabled = true);
+
+      quizStats.total++;
+      const box = document.getElementById('quizFeedbackBox');
+      const text = document.getElementById('quizFeedbackText');
+
+      if (selectedAns === correctAns) {
+        quizStats.correct++;
+        btnElem.className = "w-full text-left px-5 py-3 rounded-xl border border-emerald-500 bg-emerald-50 font-semibold text-emerald-700 transition flex items-center justify-between";
+        btnElem.querySelector('i').className = "fa-solid fa-circle-check text-emerald-500";
+        box.className = "p-3.5 rounded-xl flex items-center justify-between bg-emerald-50 border border-emerald-200 text-emerald-800";
+
+        if (isMistakeMode) {
+          removeMistake(currentQuizWord);
+          text.innerText = "答對了！已移出錯題本 👏";
+        } else {
+          text.innerText = "答對了！太棒了 🎉";
+        }
+      } else {
+        btnElem.className = "w-full text-left px-5 py-3 rounded-xl border border-rose-400 bg-rose-50 font-semibold text-rose-700 transition flex items-center justify-between";
+        btnElem.querySelector('i').className = "fa-solid fa-circle-xmark text-rose-500";
+
+        allBtns.forEach(b => {
+          if (b.innerText.includes(correctAns)) {
+            b.className = "w-full text-left px-5 py-3 rounded-xl border border-emerald-500 bg-emerald-50 font-semibold text-emerald-700 transition flex items-center justify-between";
+          }
+        });
+
+        addMistake(currentQuizWord);
+        box.className = "p-3.5 rounded-xl flex items-center justify-between bg-rose-50 border border-rose-200 text-rose-800";
+        text.innerText = `答錯囉！正解：${correctAns} (已收錄錯題)`;
+      }
+
+      box.classList.remove('hidden');
+      document.getElementById('quizTotalCount').innerText = quizStats.total;
+      const acc = Math.round((quizStats.correct / quizStats.total) * 100);
+      document.getElementById('quizAccuracy').innerText = `${acc}%`;
+    }
+
+    function loadNextSpelling() {
+      if (filteredWords.length === 0) return;
+      document.getElementById('spellFeedbackBox').classList.add('hidden');
+      document.getElementById('spellHintText').classList.add('hidden');
+
+      const input = document.getElementById('spellInput');
+      input.value = '';
+      input.focus();
+
+      const randIdx = Math.floor(Math.random() * filteredWords.length);
+      currentSpellWord = filteredWords[randIdx];
+
+      document.getElementById('spellCategory').innerText = currentSpellWord.Category || '護理詞彙';
+      document.getElementById('spellChinese').innerText = currentSpellWord.Chinese;
+    }
+
+    function showSpellHint() {
+      if (!currentSpellWord) return;
+      const hint = document.getElementById('spellHintText');
+      const first = currentSpellWord.English.charAt(0);
+      const len = currentSpellWord.English.length;
+      hint.innerText = `提示：首字母為「${first}」，共 ${len} 個字母`;
+      hint.classList.remove('hidden');
+    }
+
+    function handleSpellSubmit(e) {
+      e.preventDefault();
+      if (!currentSpellWord) return;
+
+      const userAns = document.getElementById('spellInput').value.trim().toLowerCase();
+      const actualAns = currentSpellWord.English.trim().toLowerCase();
+      const box = document.getElementById('spellFeedbackBox');
+      const text = document.getElementById('spellFeedbackText');
+
+      if (!userAns) {
+        showToast('請先輸入英文單字！', 'warning');
+        return;
+      }
+
+      if (userAns === actualAns) {
+        box.className = "p-3.5 rounded-xl flex items-center justify-between bg-emerald-50 border border-emerald-200 text-emerald-800";
+        if (isMistakeMode) {
+          removeMistake(currentSpellWord);
+          text.innerHTML = `<span><i class="fa-solid fa-check text-emerald-500 mr-1"></i> 正確！已移出錯題：<strong>${currentSpellWord.English}</strong></span>`;
+        } else {
+          text.innerHTML = `<span><i class="fa-solid fa-check text-emerald-500 mr-1"></i> 拼字完全正確！<strong>${currentSpellWord.English}</strong></span>`;
+        }
+        playPronunciation(currentSpellWord.English);
+      } else {
+        addMistake(currentSpellWord);
+        box.className = "p-3.5 rounded-xl flex items-center justify-between bg-rose-50 border border-rose-200 text-rose-800";
+        text.innerHTML = `<span><i class="fa-solid fa-xmark text-rose-500 mr-1"></i> 拼錯了！正解：<strong class="underline">${currentSpellWord.English}</strong></span>`;
+      }
+      box.classList.remove('hidden');
+    }
+
+    // 錯題清單 Modal 控制
+    function openMistakeListModal() {
+      const container = document.getElementById('mistakeListContent');
+      document.getElementById('modalMistakeCount').innerText = mistakeList.length;
+
+      if (mistakeList.length === 0) {
+        container.innerHTML = '<div class="py-6 text-center text-slate-400">目前沒有錯題紀錄！</div>';
+      } else {
+        container.innerHTML = '';
+        mistakeList.forEach((item, idx) => {
+          const row = document.createElement('div');
+          row.className = "py-2.5 flex items-center justify-between";
+          row.innerHTML = `
+            <div>
+              <span class="font-bold text-slate-800">${item.English}</span>
+              <span class="text-xs text-slate-500 ml-2">${item.Chinese}</span>
+            </div>
+            <button onclick="removeMistakeByIndex(${idx})" class="text-slate-400 hover:text-rose-500 px-2 py-1 text-xs">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          `;
+          container.appendChild(row);
+        });
+      }
+
+      document.getElementById('mistakeListModal').classList.remove('hidden');
+    }
+
+    function removeMistakeByIndex(idx) {
+      if (mistakeList[idx]) {
+        const item = mistakeList[idx];
+        removeMistake(item);
+        openMistakeListModal();
+      }
+    }
+
+    function closeMistakeListModal() {
+      document.getElementById('mistakeListModal').classList.add('hidden');
+    }
+
+    function openApiModal() {
+      document.getElementById('apiModal').classList.remove('hidden');
+    }
+
+    function closeApiModal() {
+      document.getElementById('apiModal').classList.add('hidden');
+    }
+
+    async function saveAndFetchApi() {
+      const url = document.getElementById('gasUrlInput').value.trim();
+      if (!url) {
+        showToast('請輸入有效網址', 'warning');
+        return;
+      }
+      const spinner = document.getElementById('fetchLoadingSpinner');
+      spinner.classList.remove('hidden');
+      try {
+        await fetchRemoteData(url, true);
+        localStorage.setItem('pvqc_gas_url', url);
+        closeApiModal();
+      } catch (e) {
+        showToast('連線失敗，請確認 GAS 權限', 'error');
+      } finally {
+        spinner.classList.add('hidden');
+      }
+    }
+
+    function resetDefaultWords() {
+      localStorage.removeItem('pvqc_gas_url');
+      document.getElementById('gasUrlInput').value = DEFAULT_GAS_URL;
+      refreshCategoryDropdown(DEFAULT_WORDS);
+      updateDataset(DEFAULT_WORDS, "內建 30 字");
+      closeApiModal();
+      showToast('已還原預設題庫', 'info');
+    }
+
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toastNotification');
+      const msg = document.getElementById('toastMessage');
+      const icon = document.getElementById('toastIcon');
+      if (!toast || !msg || !icon) return;
+
+      msg.innerText = message;
+      if (type === 'success') icon.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-400"></i>';
+      else if (type === 'error') icon.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-rose-400"></i>';
+      else if (type === 'warning') icon.innerHTML = '<i class="fa-solid fa-circle-exclamation text-amber-400"></i>';
+      else icon.innerHTML = '<i class="fa-solid fa-circle-info text-teal-400"></i>';
+
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 2500);
+    }
+  </script>
+</body>
+</html>
